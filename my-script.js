@@ -3,7 +3,7 @@ var secret = null;
 var charactersGuessed = [];
 var excepts = "";
 var score = 0;
-var bestScore = 70;
+var bestScore = 71;
 var results = [];
 
 /* helper functions */
@@ -76,6 +76,7 @@ function sleep(ms) {
     dt.setTime(dt.getTime() + ms);
     while (new Date().getTime() < dt.getTime());
 }
+
 /* end of helper functions */
 
 
@@ -95,12 +96,13 @@ function getSuggestion(query, excludes) {
         var includePartOfSpeech = "";
         //var filter = "noun,adjective,verb,adverb,pronoun,preposition,auxiliary-verb,idiom,noun-plural,past-participle,noun-posessive,proper-noun,proper-noun-plural,proper-noun-posessive,verb-intransitive,verb-transitive";
         filter = "";
-        var url = "http://api.wordnik.com/v4/words.json/search/" + query + "?caseSensitive=false&includePartOfSpeech=" + filter + "&minCorpusCount=1&maxCorpusCount=-1&minDictionaryCount=1&maxDictionaryCount=-1&minLength=" + query.length + "&maxLength=" + query.length + "&skip=0&limit=200&api_key=a2a73e7b926c924fad7001ca3111acd55af2ffabf50eb4ae5";
+        var url = "http://api.wordnik.com/v4/words.json/search/" + query + "?caseSensitive=false&includePartOfSpeech=" + filter + "&minCorpusCount=1&maxCorpusCount=-1&minDictionaryCount=1&maxDictionaryCount=-1&minLength=" + query.length + "&maxLength=" + query.length + "&skip=0&limit=1000&api_key=a2a73e7b926c924fad7001ca3111acd55af2ffabf50eb4ae5";
         req.open("GET", url, false);
         req.send();
         if (req.responseText != null) {
             var words = JSON.parse(req.responseText);
             if (words.totalResults > 0) {
+                var matchedWords = [];
                 for (var i = 0; i < words.searchResults.length; i++) {
                     var word = words.searchResults[i].word;
                     if (haveCharsIn(word, excludes)) {
@@ -108,11 +110,35 @@ function getSuggestion(query, excludes) {
                     } else if (!match(query, word)) {
                         continue;
                     } else {
-                        var unknownCharId = query.indexOf("*");
-                        var result = word[unknownCharId].toUpperCase();
-                        console.log("get suggetion: " + word + result);
-                        return result;
+                        matchedWords.push(word.toUpperCase());
                     }
+                }
+                if (matchedWords.length > 0) {
+                    var charWeights = {"A":0
+                    };
+                    for (var i = 0; i < matchedWords.length; i++) {
+                        var added = "";
+                        for (var j = 0; j < matchedWords[i].length; j++) {
+                            if (added.indexOf(matchedWords[i][j]) < 0) {
+                                added += matchedWords[i][j];
+                                if (typeof (charWeights[matchedWords[i][j]]) == "undefined") {
+                                    charWeights[matchedWords[i][j]] = 0;
+                                }
+                                charWeights[matchedWords[i][j]]++;
+                            }
+                        }
+                    }
+                    var result = "A";
+                    for (var p in charWeights) {
+                        if(haveCharsIn(query, p)){
+                            charWeights[p] = 0;
+                        }
+                        if (charWeights[p] > charWeights[result]) {
+                            result = p;
+                        }
+                    }
+                    console.log('Suggest: '+result);
+                    return result;
                 }
             }
         }
@@ -122,6 +148,10 @@ function getSuggestion(query, excludes) {
         sleep(5000);
         getSuggestion(query, excludes);
     }
+}
+
+function getWords(length) {
+
 }
 
 // Check if the word contains the following chars
